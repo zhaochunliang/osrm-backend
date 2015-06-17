@@ -39,6 +39,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <boost/assert.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/ref.hpp>
+
+#include <luabind/luabind.hpp>
 
 #include <stxxl/sort>
 
@@ -74,7 +77,8 @@ ExtractionContainers::~ExtractionContainers()
  * FIXME: Each of this step should be an own function for readability.
  */
 void ExtractionContainers::PrepareData(const std::string &output_file_name,
-                                       const std::string &restrictions_file_name)
+                                       const std::string &restrictions_file_name,
+                                       lua_State *local_state)
 {
     try
     {
@@ -333,9 +337,14 @@ void ExtractionContainers::PrepareData(const std::string &output_file_name,
                 edge_iterator->target_coordinate.lat = node_iterator->lat;
                 edge_iterator->target_coordinate.lon = node_iterator->lon;
 
-                const double distance = coordinate_calculation::euclidean_distance(
+                double distance = coordinate_calculation::euclidean_distance(
                     edge_iterator->source_coordinate.lat, edge_iterator->source_coordinate.lon,
                     node_iterator->lat, node_iterator->lon);
+
+                luabind::call_function<void>(
+                    local_state, "segment_function",
+                    boost::ref(*edge_iterator),
+                    boost::cref(distance));
 
                 const double weight = (distance * 10.) / (edge_iterator->speed / 3.6);
                 int integer_weight = std::max(
